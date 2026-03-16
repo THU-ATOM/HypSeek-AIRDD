@@ -1,0 +1,17 @@
+# PyTorch Ecosystem (CUDA 11.8)
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.7.0+cu118
+torchvision==0.22.0+cu118
+torchaudio==2.7.0+cu118
+
+# Machine Learning & Bioinformatics Utils
+numpy
+scikit-bio==0.6.2
+rdkit
+biopandas
+transformers==4.51.3
+tokenizers==0.21.1
+huggingface-hub==0.30.2
+lmdb==1.6.2
+scikit-learn==1.6.1
+loguru==0.7.3
