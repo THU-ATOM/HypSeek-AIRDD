@@ -1138,104 +1138,176 @@ class ContrasRankTest(UnicoreTask):
         np.save(f"{self.args.results_path}/saved_target_embed.npy", pocket_reps)
 
 
+    # def test_fep_target(self, target, model, label_info, **kwargs):
+    #     import os, json
+    #     import numpy as np
+    #     import pandas as pd
+    #     import torch
+    #     from scipy.stats import pearsonr, spearmanr
+    #     from sklearn.metrics import accuracy_score, roc_auc_score
+
+    #     bench_root = f"{self.args.data}/bench"
+    #     fep_csv    = f"{bench_root}/fep/{target}/result_dG.csv"
+    #     jacs_fp    = f"{bench_root}/jacs_set/{target}_edges.csv"
+    #     merck_fp   = f"{bench_root}/merck/{target}_edges.csv"
+    #     edge_fp    = jacs_fp if os.path.exists(jacs_fp) else merck_fp
+    #     dg_df     = pd.read_csv(fep_csv, dtype=str)
+    #     name2smi  = dict(zip(dg_df["ligand_name"], dg_df["ligand_smiles"]))
+    #     smi2name  = {v: k for k, v in name2smi.items()}
+    #     mol_ds    = self.load_mols_dataset(
+    #         f"{self.args.data}/FEP/lmdbs/{target}_lig.lmdb",
+    #         "atoms", "coordinates")
+    #     loader    = torch.utils.data.DataLoader(mol_ds, batch_size=64,
+    #                                             collate_fn=mol_ds.collater)
+
+    #     mol_reps, mol_smis = [], []
+    #     with torch.no_grad():
+    #         for batch in loader:
+    #             batch = unicore.utils.move_to_cuda(batch)
+    #             emb   = model.mol_forward(**batch["net_input"])
+    #             mol_reps.append(emb.cpu().numpy())
+    #             mol_smis.extend(batch["smi_name"])
+    #     mol_reps = np.concatenate(mol_reps, axis=0)
+    #     pocket_ds = self.load_pockets_dataset(
+    #         f"{self.args.data}/FEP/lmdbs/{target}.lmdb")
+    #     ploader   = torch.utils.data.DataLoader(
+    #         pocket_ds, batch_size=64, collate_fn=pocket_ds.collater)
+
+    #     pocket_reps = []
+    #     with torch.no_grad():
+    #         for batch in ploader:
+    #             batch = unicore.utils.move_to_cuda(batch)
+    #             emb   = model.pocket_forward(
+    #                 protein_sequences=label_info["sequence"],
+    #                 **batch["net_input"])
+    #             pocket_reps.append(emb.cpu().numpy())
+    #     pocket_reps = np.concatenate(pocket_reps, axis=0)
+
+    #     with torch.no_grad():
+    #         prot_emb = model.protein_forward(
+    #             protein_sequences=label_info["sequence"]
+    #         )
+    #     prot_np = prot_emb.cpu().numpy()
+    #     if prot_np.ndim == 2 and prot_np.shape[0] == 1:
+    #         prot_reps = np.repeat(prot_np, mol_reps.shape[0], axis=0)
+    #     else:
+    #         prot_reps = prot_np
+
+    #     poc_scores  = (pocket_reps @ mol_reps.T).max(axis=0)
+    #     prot_scores = (prot_reps   @ mol_reps.T).max(axis=0)
+    #     alpha_poc  = getattr(self.args, "alpha_poc", 1)
+    #     alpha_prot = getattr(self.args, "alpha_prot",0)
+    #     pred_scores = alpha_poc * poc_scores + alpha_prot * prot_scores
+    #     smi2score   = dict(zip(mol_smis, pred_scores))
+
+    #     act_dict   = {lig["smi"]: float(lig["act"]) for lig in label_info["ligands"]}
+    #     real_dg    = np.array([act_dict[s] for s in mol_smis])
+
+    #     r_value, p_value = pearsonr(real_dg, pred_scores)
+    #     r2 = max(r_value, 0)**2
+    #     rho = spearmanr(real_dg, pred_scores).correlation
+    #     edges       = pd.read_csv(edge_fp, dtype=str)
+    #     edges["ddG (kcal/mol)"] = edges["ddG (kcal/mol)"].astype(float)
+    #     miss, labels, deltas = [], [], []
+    #     for _, row in edges.iterrows():
+    #         n1, n2, ddg = row["Ligand 1"], row["Ligand 2"], row["ddG (kcal/mol)"]
+    #         if ddg == 0:
+    #             continue
+    #         s1, s2 = name2smi.get(n1), name2smi.get(n2)
+    #         if s1 is None or s2 is None or s1 not in smi2score or s2 not in smi2score:
+    #             miss.append((n1, n2))
+    #             continue
+    #         labels.append(1 if ddg > 0 else 0)
+    #         deltas.append(smi2score[s1] - smi2score[s2])
+    #     if deltas:
+    #         arr = np.array(deltas)
+    #         arr = (arr - arr.min())/(arr.max()-arr.min())*2 - 1 if arr.max() != arr.min() else arr
+    #         acc = accuracy_score(labels, (arr > 0).astype(int))
+    #         auc = roc_auc_score(labels, arr)
+    #     else:
+    #         acc = auc = float("nan")
+
+    #     out_dir = f"{self.args.results_path}/FEP/{target}"
+    #     os.makedirs(out_dir, exist_ok=True)
+    #     np.save(f"{out_dir}/saved_mols_embed.npy",   mol_reps)
+    #     np.save(f"{out_dir}/saved_pocket_embed.npy", pocket_reps)
+    #     np.save(f"{out_dir}/saved_prot_embed.npy",   prot_reps)
+    #     np.save(f"{out_dir}/saved_labels.npy",      real_dg)
+    #     json.dump([smi2name[s] for s in mol_smis],
+    #             open(f"{out_dir}/saved_names.json", "w"))
+    #     return r2, rho, r_value, acc, auc
+
     def test_fep_target(self, target, model, label_info, **kwargs):
-        import os, json
-        import numpy as np
-        import pandas as pd
-        import torch
-        from scipy.stats import pearsonr, spearmanr
-        from sklearn.metrics import accuracy_score, roc_auc_score
-
-        bench_root = f"{self.args.data}/bench"
-        fep_csv    = f"{bench_root}/fep/{target}/result_dG.csv"
-        jacs_fp    = f"{bench_root}/jacs_set/{target}_edges.csv"
-        merck_fp   = f"{bench_root}/merck/{target}_edges.csv"
-        edge_fp    = jacs_fp if os.path.exists(jacs_fp) else merck_fp
-        dg_df     = pd.read_csv(fep_csv, dtype=str)
-        name2smi  = dict(zip(dg_df["ligand_name"], dg_df["ligand_smiles"]))
-        smi2name  = {v: k for k, v in name2smi.items()}
-        mol_ds    = self.load_mols_dataset(
-            f"{self.args.data}/FEP/lmdbs/{target}_lig.lmdb",
-            "atoms", "coordinates")
-        loader    = torch.utils.data.DataLoader(mol_ds, batch_size=64,
-                                                collate_fn=mol_ds.collater)
-
-        mol_reps, mol_smis = [], []
-        with torch.no_grad():
-            for batch in loader:
-                batch = unicore.utils.move_to_cuda(batch)
-                emb   = model.mol_forward(**batch["net_input"])
-                mol_reps.append(emb.cpu().numpy())
-                mol_smis.extend(batch["smi_name"])
-        mol_reps = np.concatenate(mol_reps, axis=0)
-        pocket_ds = self.load_pockets_dataset(
-            f"{self.args.data}/FEP/lmdbs/{target}.lmdb")
-        ploader   = torch.utils.data.DataLoader(
-            pocket_ds, batch_size=64, collate_fn=pocket_ds.collater)
-
-        pocket_reps = []
-        with torch.no_grad():
-            for batch in ploader:
-                batch = unicore.utils.move_to_cuda(batch)
-                emb   = model.pocket_forward(
-                    protein_sequences=label_info["sequence"],
-                    **batch["net_input"])
-                pocket_reps.append(emb.cpu().numpy())
-        pocket_reps = np.concatenate(pocket_reps, axis=0)
-
-        with torch.no_grad():
-            prot_emb = model.protein_forward(
-                protein_sequences=label_info["sequence"]
-            )
-        prot_np = prot_emb.cpu().numpy()
-        if prot_np.ndim == 2 and prot_np.shape[0] == 1:
-            prot_reps = np.repeat(prot_np, mol_reps.shape[0], axis=0)
-        else:
-            prot_reps = prot_np
-
-        poc_scores  = (pocket_reps @ mol_reps.T).max(axis=0)
-        prot_scores = (prot_reps   @ mol_reps.T).max(axis=0)
-        alpha_poc  = getattr(self.args, "alpha_poc", 1)
-        alpha_prot = getattr(self.args, "alpha_prot",0)
-        pred_scores = alpha_poc * poc_scores + alpha_prot * prot_scores
-        smi2score   = dict(zip(mol_smis, pred_scores))
-
-        act_dict   = {lig["smi"]: float(lig["act"]) for lig in label_info["ligands"]}
-        real_dg    = np.array([act_dict[s] for s in mol_smis])
-
-        r_value, p_value = pearsonr(real_dg, pred_scores)
-        r2 = max(r_value, 0)**2
-        rho = spearmanr(real_dg, pred_scores).correlation
-        edges       = pd.read_csv(edge_fp, dtype=str)
-        edges["ddG (kcal/mol)"] = edges["ddG (kcal/mol)"].astype(float)
-        miss, labels, deltas = [], [], []
-        for _, row in edges.iterrows():
-            n1, n2, ddg = row["Ligand 1"], row["Ligand 2"], row["ddG (kcal/mol)"]
-            if ddg == 0:
-                continue
-            s1, s2 = name2smi.get(n1), name2smi.get(n2)
-            if s1 is None or s2 is None or s1 not in smi2score or s2 not in smi2score:
-                miss.append((n1, n2))
-                continue
-            labels.append(1 if ddg > 0 else 0)
-            deltas.append(smi2score[s1] - smi2score[s2])
-        if deltas:
-            arr = np.array(deltas)
-            arr = (arr - arr.min())/(arr.max()-arr.min())*2 - 1 if arr.max() != arr.min() else arr
-            acc = accuracy_score(labels, (arr > 0).astype(int))
-            auc = roc_auc_score(labels, arr)
-        else:
-            acc = auc = float("nan")
-
-        out_dir = f"{self.args.results_path}/FEP/{target}"
-        os.makedirs(out_dir, exist_ok=True)
-        np.save(f"{out_dir}/saved_mols_embed.npy",   mol_reps)
-        np.save(f"{out_dir}/saved_pocket_embed.npy", pocket_reps)
-        np.save(f"{out_dir}/saved_prot_embed.npy",   prot_reps)
-        np.save(f"{out_dir}/saved_labels.npy",      real_dg)
-        json.dump([smi2name[s] for s in mol_smis],
-                open(f"{out_dir}/saved_names.json", "w"))
-        return r2, rho, r_value, acc, auc
+          import os, json
+          import numpy as np
+          import pandas as pd
+          import torch
+  
+          # 1. 纯粹的数据加载 (无视 Ground Truth 相关文件)
+          # 修改点：直接指向 lmdb_output 目录下的 ligands.lmdb
+          mol_ds = self.load_mols_dataset(
+              f"{self.args.data}/ligands.lmdb",
+              "atoms", "coordinates")
+          loader = torch.utils.data.DataLoader(mol_ds, batch_size=64,
+                                               collate_fn=mol_ds.collater)
+  
+          mol_reps, mol_smis = [], []
+          with torch.no_grad():
+              for batch in loader:
+                  batch = unicore.utils.move_to_cuda(batch)
+                  emb = model.mol_forward(**batch["net_input"])
+                  mol_reps.append(emb.cpu().numpy())
+                  mol_smis.extend(batch["smi_name"]) # 记录小分子的 SMILES 或 ID
+          mol_reps = np.concatenate(mol_reps, axis=0)
+  
+          # 2. 蛋白 Pocket 提取
+          # 修改点：直接指向 lmdb_output 目录下的 proteins.lmdb
+          pocket_ds = self.load_pockets_dataset(
+              f"{self.args.data}/proteins.lmdb")
+          ploader = torch.utils.data.DataLoader(
+              pocket_ds, batch_size=64, collate_fn=pocket_ds.collater)
+  
+          pocket_reps = []
+          with torch.no_grad():
+              for batch in ploader:
+                  batch = unicore.utils.move_to_cuda(batch)
+                  emb = model.pocket_forward(
+                      protein_sequences=label_info["sequence"],
+                      **batch["net_input"])
+                  pocket_reps.append(emb.cpu().numpy())
+          pocket_reps = np.concatenate(pocket_reps, axis=0)
+  
+          # 3. 完整蛋白特征提取
+          with torch.no_grad():
+              prot_emb = model.protein_forward(
+                  protein_sequences=label_info["sequence"]
+              )
+          prot_np = prot_emb.cpu().numpy()
+          if prot_np.ndim == 2 and prot_np.shape[0] == 1:
+              prot_reps = np.repeat(prot_np, mol_reps.shape[0], axis=0)
+          else:
+              prot_reps = prot_np
+  
+          # 4. 核心：计算最终的亲和力预测打分
+          poc_scores  = (pocket_reps @ mol_reps.T).max(axis=0)
+          prot_scores = (prot_reps   @ mol_reps.T).max(axis=0)
+          alpha_poc  = getattr(self.args, "alpha_poc", 1)
+          alpha_prot = getattr(self.args, "alpha_prot", 0)
+          pred_scores = alpha_poc * poc_scores + alpha_prot * prot_scores
+  
+          # 5. 直接保存结果到 CSV
+          out_dir = f"{self.args.results_path}/{target}"
+          os.makedirs(out_dir, exist_ok=True)
+          
+          res_df = pd.DataFrame({
+              "smiles": mol_smis,
+              "predicted_affinity": pred_scores
+          })
+          res_df.to_csv(f"{out_dir}/predictions.csv", index=False)
+          print(f"[{target}] 成功保存 {len(pred_scores)} 个小分子的预测结果至 {out_dir}/predictions.csv")
+  
+          # 为了兼容外层的 test_fep 函数不报错，随便返回 5 个 0 (伪造的 r2, rho, r, acc, auc)
+          return 0, 0, 0, 0, 0
 
     def test_fep(self, model, **kwargs):
         import json
