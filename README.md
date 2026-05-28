@@ -16,8 +16,8 @@
 
 Clone the repository:
 ```bash
-git clone https://github.com/jianhuiwemi/HypSeek.git
-cd HypSeek
+git clone https://github.com/THU-ATOM/HypSeek-AIRDD.git
+cd HypSeek-AIRDD
 ```
 Install OpenBabel:
 ```bash
@@ -112,5 +112,4 @@ This work builds upon [Uni-Mol](https://github.com/dptech-corp/Uni-Mol), [Uni-Co
 
 For any questions or collaboration requests, please contact Jianhui:
 [jianhuiwang309@gmail.com](mailto:jianhuiwang309@gmail.com)
-
 
